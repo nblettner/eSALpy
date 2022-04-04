@@ -1,0 +1,14 @@
+name: sal
+channels:
+  - conda-forge
+dependencies:
+  - numpy
+  - xarray
+  - scipy
+  - scikit-image
+  - dask
+  - tqdm
+  - pytest
+  - jupyterlab
+  - matplotlib
+  - proplot
