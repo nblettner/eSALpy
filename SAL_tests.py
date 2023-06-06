@@ -270,12 +270,12 @@ class TestSAL(unittest.TestCase):
         ds_sal_ref["A"] = ("time", [-0.02740616, -0.40501276])
         ds_sal_ref["L"] = ("time", [0.17805914, 0.0149411])
         ds_sal_ref["L1"] = ("time", [0.17707402, 0.0149411])
-        ds_sal_ref["thld_sim"] = ("time", [0.21838037, 0.44252352])
+        ds_sal_ref["thld_rec"] = ("time", [0.21838037, 0.44252352])
         ds_sal_ref["thld_ref"] = ("time", [0.2537921, 0.6179307])
-        ds_sal_ref["nF_sim"] = ("time", [1, 1])
+        ds_sal_ref["nF_rec"] = ("time", [1, 1])
         ds_sal_ref["nF_ref"] = ("time", [1, 1])
-        ds_sal_ref["tcm_y_sim"] = ("time", [3.52119429, 4.85104918])
-        ds_sal_ref["tcm_x_sim"] = ("time", [5.95379256, 5.09606954])
+        ds_sal_ref["tcm_y_rec"] = ("time", [3.52119429, 4.85104918])
+        ds_sal_ref["tcm_x_rec"] = ("time", [5.95379256, 5.09606954])
         ds_sal_ref["tcm_y_ref"] = ("time", [5.58611338, 5.02682657])
         ds_sal_ref["tcm_x_ref"] = ("time", [4.53705307, 4.9788108])
         ds_sal_ref["Q"] = ("time", [0.31486497, 0.41275999])
@@ -445,11 +445,11 @@ class TestSAL(unittest.TestCase):
         ds_sal_ref = xr.Dataset()
         ds_sal_ref["time"] = t
         ds_sal_ref["S"] = -0.074708
-        ds_sal_ref["mS"] = ("nfields_sim", [-0.5560225 ,  0.25406258])
+        ds_sal_ref["mS"] = ("nfields_rec", [-0.5560225 ,  0.25406258])
         ds_sal_ref["A"] = -0.76011114
-        ds_sal_ref["mA"] = ("nfields_sim", [-1.20438418, -0.42403053])
+        ds_sal_ref["mA"] = ("nfields_rec", [-1.20438418, -0.42403053])
         ds_sal_ref["L"] = 0.13889447
-        ds_sal_ref["mL"] = ("nfields_sim", [0.16345405, 0.07461948])
+        ds_sal_ref["mL"] = ("nfields_rec", [0.16345405, 0.07461948])
         
         xr.testing.assert_allclose(
             ds_sal,
@@ -469,11 +469,11 @@ class TestSAL(unittest.TestCase):
         ds_sal_ref = xr.Dataset()
         ds_sal_ref["time"] = t
         ds_sal_ref["S"] = -0.1222824
-        ds_sal_ref["mS"] = ("nfields_sim", [-0.59498895,  0.2047438])
+        ds_sal_ref["mS"] = ("nfields_rec", [-0.59498895,  0.2047438])
         ds_sal_ref["A"] = -0.76011114
-        ds_sal_ref["mA"] = ("nfields_sim", [-1.20438418, -0.42403053])
+        ds_sal_ref["mA"] = ("nfields_rec", [-1.20438418, -0.42403053])
         ds_sal_ref["L"] = 0.11164241
-        ds_sal_ref["mL"] = ("nfields_sim", [0.15996997, 0.0711354])
+        ds_sal_ref["mL"] = ("nfields_rec", [0.15996997, 0.0711354])
         
         xr.testing.assert_allclose(
             ds_sal,

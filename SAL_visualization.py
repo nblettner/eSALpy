@@ -32,7 +32,7 @@ def maps_with_bars(fields, sal_out, cMap=None, cLevels=None, outname=None):
 
     # map plots -----------------
     title = ["Prediction", "Reference"]
-    name = ["sim", "ref"]
+    name = ["rec", "ref"]
 
     cLevels = np.linspace(0, np.max(fields), 20)
     # loop over fields
@@ -213,7 +213,7 @@ def colormap(
 #     return cMap, cLevels
 
 
-def visualization_SAL(field_sim, field_ref, sal_out, fig_width=5.5, cMap=None, cLevels=None, outname=None):
+def visualization_SAL(field_rec, field_ref, sal_out, fig_width=5.5, cMap=None, cLevels=None, outname=None):
 
     # plot ____________
     font_small = 6
@@ -224,10 +224,10 @@ def visualization_SAL(field_sim, field_ref, sal_out, fig_width=5.5, cMap=None, c
     # plt.rcParams["font.size"] = 15  # 4
     fig_height = (1/1.4) * fig_width
     
-    assert (field_sim.shape == field_ref.shape)
+    assert (field_rec.shape == field_ref.shape)
     
-    y = np.arange(field_sim.shape[-2])
-    x = np.arange(field_sim.shape[-1])
+    y = np.arange(field_rec.shape[-2])
+    x = np.arange(field_rec.shape[-1])
 
     plot_array = [
         [1, 1, 1, 2, 2, 2],
@@ -249,10 +249,10 @@ def visualization_SAL(field_sim, field_ref, sal_out, fig_width=5.5, cMap=None, c
     # map plots
     
     title = ["Prediction", "Reference"]
-    name = ["sim", "ref"]
+    name = ["rec", "ref"]
 
     # loop over fields
-    for i_field, field in enumerate([field_sim, field_ref]):
+    for i_field, field in enumerate([field_rec, field_ref]):
 
         # rainfall
         im = axs[i_field].pcolormesh(field, cmap=cMap, levels=cLevels, extend="both")
@@ -350,7 +350,7 @@ def visualization_SAL(field_sim, field_ref, sal_out, fig_width=5.5, cMap=None, c
 
 
 
-def several_fields_in_row(fields_sim, field_ref, sal_list, fig_width=5.5, cMap=None, cLevels=None, outname=None):
+def several_fields_in_row(fields_rec, field_ref, sal_list, fig_width=5.5, cMap=None, cLevels=None, outname=None):
 
     # plot ____________
     font_small = 4
@@ -361,17 +361,17 @@ def several_fields_in_row(fields_sim, field_ref, sal_list, fig_width=5.5, cMap=N
     cmap_binary_wb = ["#FFFFFF", "#000000"]
     cmap_binary_wo = ["#FFFFFF", c_markers]
     # plt.rcParams["font.size"] = 15  # 4
-    fig_height = (1/1) * (4/3) * (1/len(fields_sim)) * fig_width
+    fig_height = (1/1) * (4/3) * (1/len(fields_rec)) * fig_width
     
-    for field_sim in fields_sim:
-        assert (field_sim.shape == field_ref.shape)
+    for field_rec in fields_rec:
+        assert (field_rec.shape == field_ref.shape)
     
-    y = np.arange(field_sim.shape[-2])
-    x = np.arange(field_sim.shape[-1])
+    y = np.arange(field_rec.shape[-2])
+    x = np.arange(field_rec.shape[-1])
 
     # define plot_array (layout)
     plot_arr_list = []
-    for i in range(fields_sim.shape[0]+1):
+    for i in range(fields_rec.shape[0]+1):
         p = np.ones((4,3)) + (i*2)
         p[-1,:] = p[-1,:] + 1 
         plot_arr_list.append(p)
@@ -433,10 +433,10 @@ def several_fields_in_row(fields_sim, field_ref, sal_list, fig_width=5.5, cMap=N
     axs[1].set_visible(False)
     
     # =======================
-    # sim fields
+    # rec fields
     
     # loop over fields
-    for i_field, field in enumerate(fields_sim):
+    for i_field, field in enumerate(fields_rec):
 
         axi = 2*i_field + 2
         # rainfall
@@ -445,14 +445,14 @@ def several_fields_in_row(fields_sim, field_ref, sal_list, fig_width=5.5, cMap=N
         # contour for threshold
         axs[axi].contour(
             field,
-            levels=np.array([-1, sal_list[i_field]["thld_sim"]]),
+            levels=np.array([-1, sal_list[i_field]["thld_rec"]]),
             colors=cmap_binary_wo,
         )
 
         # center of mass
         axs[axi].scatter(
-            sal_list[i_field]["tcm_x_sim"],
-            sal_list[i_field]["tcm_y_sim"],
+            sal_list[i_field]["tcm_x_rec"],
+            sal_list[i_field]["tcm_y_rec"],
             marker="X",
             color=c_markers,
             ec="white",
@@ -462,7 +462,7 @@ def several_fields_in_row(fields_sim, field_ref, sal_list, fig_width=5.5, cMap=N
         )
 
         # format
-        axs[axi].set_title("Simulation: %i"%(i_field+1), fontsize=font_title)
+        axs[axi].set_title("Reconstruction: %i"%(i_field+1), fontsize=font_title)
         axs[axi].format(
             ylim=[y.min(), y.max()],
             xlim=[x.min(), x.max()],

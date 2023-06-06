@@ -142,7 +142,7 @@ def calc_mSAL(a, b, rProp_a, rProp_b, maxDist):
     Calculate SAL parameters of the individual ensemble members (mSAL).
     
     Parameters:
-    a: simulation field / ensemble
+    a: reconstruction field / ensemble
     b: reference field / ensemble
     rProp_a: regional properties of a
     rProp_b: regional properties of b
@@ -175,7 +175,7 @@ def calc_eSAL(a, b, rProp_a, rProp_b, maxDist):
     Calculate eSAL parameters of the whole ensemble.
     
     Parameters:
-    a: simulation field / ensemble
+    a: reconstruction field / ensemble
     b: reference field / ensemble
     rProp_a: regional properties of a
     rProp_b: regional properties of b
@@ -206,7 +206,7 @@ def calc_eSAL(a, b, rProp_a, rProp_b, maxDist):
 
 
 def SAL_timestep(
-    simulation,
+    reconstruction,
     reference,
     time="xxx",
     thld_factor=1 / 15,
@@ -219,10 +219,10 @@ def SAL_timestep(
 ):
 
     """
-    Wrapper for calculating (e)SAL parameters (and additional parameters) for one simulation (ensemble or single field) and reference (ensemble or single field). 
+    Wrapper for calculating (e)SAL parameters (and additional parameters) for one reconstruction (ensemble or single field) and reference (ensemble or single field). 
     
     Parameters:
-    simulation, reference: Both can be a single field (shape = (ysize, xsize))
+    reconstruction, reference: Both can be a single field (shape = (ysize, xsize))
         or an ensemble (shape = (n_members, ysize, xsize)). In the latter case "SAL" is acutally "eSAL". Input fields can be numpy arrays or xarray dataarrays.
         
     time: index for the output (usually time but could be any string or number)
@@ -233,7 +233,7 @@ def SAL_timestep(
         
     wet_thld: value above which a pixel is considered wet
     
-    memberinfo: In case simulation is an ensemble this returns parameters for the individual members also
+    memberinfo: In case reconstruction is an ensemble this returns parameters for the individual members also
         
     params: list of parameters that shall be returned
         
@@ -246,12 +246,12 @@ def SAL_timestep(
     # ===================================
     # Pre-processing
 
-    # if sim and ref are given as xarray dataarrays transform them to numpy arrays
-    simulation = trans_xr_np(simulation)
+    # if rec and ref are given as xarray dataarrays transform them to numpy arrays
+    reconstruction = trans_xr_np(reconstruction)
     reference = trans_xr_np(reference)
 
     # assert right shape of input (either 2D: single field, or 3D: ensemble)
-    assert (len(simulation.shape) in [2, 3]) and (
+    assert (len(reconstruction.shape) in [2, 3]) and (
         len(reference.shape) in [2, 3]
     ), "Input must be 2- or 3-dimensional."
 
@@ -260,13 +260,13 @@ def SAL_timestep(
 
     # if single field and no ensemble is given change shape
     # (single fields are treated as ensemble of one member)
-    if len(simulation.shape) == 2:
-        simulation = simulation[np.newaxis, :]
+    if len(reconstruction.shape) == 2:
+        reconstruction = reconstruction[np.newaxis, :]
     if len(reference.shape) == 2:
         reference = reference[np.newaxis, :]
 
-    # member info only if simulation is an ensemble
-    if simulation.shape[0] == 1:
+    # member info only if reconstruction is an ensemble
+    if reconstruction.shape[0] == 1:
         memberinfo = False
 
     # ===================================
@@ -274,8 +274,8 @@ def SAL_timestep(
 
     # return nan dataset if at least one nan is in any of the fields
     # or if one of the fields not above wet threshold (zero usually)
-    if (np.isnan(simulation).any() or np.isnan(reference).any()) or (
-        np.max(simulation) <= wet_thld or np.max(reference) <= wet_thld
+    if (np.isnan(reconstruction).any() or np.isnan(reference).any()) or (
+        np.max(reconstruction) <= wet_thld or np.max(reference) <= wet_thld
     ):
         calculation_feasible = False
 
@@ -283,21 +283,21 @@ def SAL_timestep(
         # threshold: either field dependent or fixed
         if fixed_thld is None:
             # calculate thresholds
-            R_sim_high = np.quantile(simulation[simulation > wet_thld], q=quantile)
+            R_rec_high = np.quantile(reconstruction[reconstruction > wet_thld], q=quantile)
             R_ref_high = np.quantile(reference[reference > wet_thld], q=quantile)
             
             # NEEDS TO BE MORE GENERAL
             thld_factor = np.max((thld_factor, 0.1 / R_ref_high))
             
-            thld_sim = R_sim_high * thld_factor
+            thld_rec = R_rec_high * thld_factor
             thld_ref = R_ref_high * thld_factor
         else:
             # take a fixed absolute threshold
-            thld_sim = fixed_thld
+            thld_rec = fixed_thld
             thld_ref = fixed_thld
 
         # return nan if thld is too high to allow for any feature
-        if np.any(np.max(simulation, axis=(1, 2)) <= thld_sim) or np.any(
+        if np.any(np.max(reconstruction, axis=(1, 2)) <= thld_rec) or np.any(
             np.max(reference, axis=(1, 2)) <= thld_ref
         ):
             calculation_feasible = False
@@ -309,22 +309,22 @@ def SAL_timestep(
 
         # calculate maximum distance possible on grid
         maxDist = (
-            (simulation.shape[1] - 1) ** 2 + (simulation.shape[2] - 1) ** 2
+            (reconstruction.shape[1] - 1) ** 2 + (reconstruction.shape[2] - 1) ** 2
         ) ** 0.5
 
         # regional properties
-        regionProps_sim = calc_region_properties(simulation, thld=thld_sim)
+        regionProps_rec = calc_region_properties(reconstruction, thld=thld_rec)
         regionProps_ref = calc_region_properties(reference, thld=thld_ref)
 
         # SAL / eSAL calculation
         eSAL = calc_eSAL(
-            simulation, reference, regionProps_sim, regionProps_ref, maxDist
+            reconstruction, reference, regionProps_rec, regionProps_ref, maxDist
         )
 
         # SAL calculation of ensemble members
         if memberinfo:
             mSAL = calc_mSAL(
-                simulation, reference, regionProps_sim, regionProps_ref, maxDist
+                reconstruction, reference, regionProps_rec, regionProps_ref, maxDist
             )
 
     # ===================================
@@ -341,15 +341,15 @@ def SAL_timestep(
                 if memberinfo:
                     out_dict["m%s" % p] = mSAL[p]
             if p == "thld":
-                out_dict["%s_sim" % p] = thld_sim
+                out_dict["%s_rec" % p] = thld_rec
                 out_dict["%s_ref" % p] = thld_ref
             if p == "tcm":
-                out_dict["%s_y_sim" % p] = regionProps_sim[p][..., 0]
-                out_dict["%s_x_sim" % p] = regionProps_sim[p][..., 1]
+                out_dict["%s_y_rec" % p] = regionProps_rec[p][..., 0]
+                out_dict["%s_x_rec" % p] = regionProps_rec[p][..., 1]
                 out_dict["%s_y_ref" % p] = regionProps_ref[p][..., 0]
                 out_dict["%s_x_ref" % p] = regionProps_ref[p][..., 1]
             if p == "nF":
-                out_dict["%s_sim" % p] = regionProps_sim[p]
+                out_dict["%s_rec" % p] = regionProps_rec[p]
                 out_dict["%s_ref" % p] = regionProps_ref[p]
 
     else:
@@ -360,11 +360,11 @@ def SAL_timestep(
                 if memberinfo:
                     out_dict["m%s" % p] = np.nan
             if p in ["thld", "nF"]:
-                out_dict["%s_sim" % p] = np.nan
+                out_dict["%s_rec" % p] = np.nan
                 out_dict["%s_ref" % p] = np.nan
             if p == "tcm":
-                out_dict["%s_y_sim" % p] = np.nan
-                out_dict["%s_x_sim" % p] = np.nan
+                out_dict["%s_y_rec" % p] = np.nan
+                out_dict["%s_x_rec" % p] = np.nan
                 out_dict["%s_y_ref" % p] = np.nan
                 out_dict["%s_x_ref" % p] = np.nan
 
@@ -374,7 +374,7 @@ def SAL_timestep(
     # if variables should be given as xarray dataset
     if as_dataset:
         out_ds = build_dataset_timestep(
-            out_dict, simulation.shape[0], reference.shape[0], calculation_feasible
+            out_dict, reconstruction.shape[0], reference.shape[0], calculation_feasible
         )
         out = out_ds
     else:
@@ -383,7 +383,7 @@ def SAL_timestep(
     return out
 
 
-def build_dataset_timestep(out_dict, nfields_sim, nfields_ref, calculation_feasible):
+def build_dataset_timestep(out_dict, nfields_rec, nfields_ref, calculation_feasible):
     """
     Transform dictionary to xarray dataset.
     """
@@ -392,10 +392,10 @@ def build_dataset_timestep(out_dict, nfields_sim, nfields_ref, calculation_feasi
 
     if calculation_feasible:
         for p in out_dict:
-            if p in ["S", "A", "L", "L1", "thld_sim", "thld_ref"]:
+            if p in ["S", "A", "L", "L1", "thld_rec", "thld_ref"]:
                 out_ds[p] = out_dict[p]
-            if p in ["mS", "mA", "mL", "mL1", "tcm_y_sim", "tcm_x_sim", "nF_sim"]:
-                out_ds[p] = ("nfields_sim", out_dict[p])
+            if p in ["mS", "mA", "mL", "mL1", "tcm_y_rec", "tcm_x_rec", "nF_rec"]:
+                out_ds[p] = ("nfields_rec", out_dict[p])
             if p in ["tcm_y_ref", "tcm_x_ref", "nF_ref"]:
                 out_ds[p] = ("nfields_ref", out_dict[p])
     else:
@@ -407,7 +407,7 @@ def build_dataset_timestep(out_dict, nfields_sim, nfields_ref, calculation_feasi
 
 
 def SAL_timeseries(
-    simulation,
+    reconstruction,
     reference,
     t_array,
     yx_shift=None,
@@ -423,7 +423,7 @@ def SAL_timeseries(
     Wrapper for timeseries calculation.
 
     Parameters:
-    simulation, reference: xarray dataarrays with fields / ensembles and a "time" dimension.
+    reconstruction, reference: xarray dataarrays with fields / ensembles and a "time" dimension.
     t_array: timeseries
     yx_shift: list / array [yshift, xshift], for coordinate shift. Needed only for centers of mass which are calculated on the fields assuming [0, ymax], [0, xmax] spatial extension.
     thld_factor, quantile, fixed_thld, wet_thld, memberinfo, params: passed on (see "SAL_timestep")
@@ -440,7 +440,7 @@ def SAL_timeseries(
 
             results.append(
                 dask.delayed(SAL_timestep)(
-                    simulation.sel(time=t),
+                    reconstruction.sel(time=t),
                     reference.sel(time=t),
                     time=t,
                 )
@@ -456,7 +456,7 @@ def SAL_timeseries(
 
             sal.append(
                 SAL_timestep(
-                    simulation.sel(time=t),
+                    reconstruction.sel(time=t),
                     reference.sel(time=t),
                     time=t,
                 )
@@ -471,8 +471,8 @@ def SAL_timeseries(
 
     if yx_shift is not None:
         # bring to right grid position
-        sal["tcm_y_sim"] = sal.tcm_y_sim + yx_shift[0]
-        sal["tcm_x_sim"] = sal.tcm_x_sim + yx_shift[1]
+        sal["tcm_y_rec"] = sal.tcm_y_rec + yx_shift[0]
+        sal["tcm_x_rec"] = sal.tcm_x_rec + yx_shift[1]
         sal["tcm_y_ref"] = sal.tcm_y_ref + yx_shift[0]
         sal["tcm_x_ref"] = sal.tcm_x_ref + yx_shift[1]
 
