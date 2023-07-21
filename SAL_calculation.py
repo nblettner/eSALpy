@@ -70,7 +70,7 @@ def calc_region_properties(fields, thld=0):
     Parameters:
     fields: 3D array with spatial dimension at position 2 and 3, and optional
         ensemble dimension on position 1.
-    thld: threshold to discriminate rainfall objects from surrounding.
+    thld: threshold to discriminate rainfall features from surrounding.
     
     Returns:
     dictionary of regional properties.
@@ -81,16 +81,16 @@ def calc_region_properties(fields, thld=0):
 
     # initialize output variables (volume, total center of mass,
     # feature distances, number of features)
-    V_member = []
-    tcm_member = []
-    fDist_member = []
-    nF_member = []
+    V = []
+    R_center = []
+    fDist = []
+    nF = []
     for member in fields:
 
         # total center of mass
         domain = regionprops(label_image=mask, intensity_image=member)
-        tcm = np.array(domain[0].weighted_centroid)
-        tcm_member.append(tcm)
+        Rf_center = np.array(domain[0].weighted_centroid)
+        R_center.append(Rf_center)
 
         # ===================================
         # feature properties
@@ -102,36 +102,36 @@ def calc_region_properties(fields, thld=0):
         features = regionprops(label_image=l, intensity_image=member)
 
         # local center of mass, area, mean, max
-        area_, mean_, max_, lcm_ = [], [], [], []
+        Ro_area, Ro_mean, Ro_max, Ro_center = [], [], [], []
         # n_ = 0
         for f in features:
-            area_.append(f.area)
-            mean_.append(f.mean_intensity)
-            max_.append(f.max_intensity)
-            lcm_.append(f.weighted_centroid)
+            Ro_area.append(f.area)
+            Ro_mean.append(f.mean_intensity)
+            Ro_max.append(f.max_intensity)
+            Ro_center.append(f.weighted_centroid)
             # n_ += 1
 
         # sums of rain in features
-        R_n = np.array(area_) * np.array(mean_)
+        R_n = np.array(Ro_area) * np.array(Ro_mean)
 
         # ===================================
         # calculations that reduce feature dimension
 
         # volume normalized by domain sum of rain
-        V_member.append((R_n**2 / np.array(max_)).sum() / R_n.sum())
+        V.append((R_n**2 / np.array(Ro_max)).sum() / R_n.sum())
 
         # weightet distances of center of masses to
         # total center of mass normalized by domain sum of rain
-        fDist_member.append((R_n * calc_dist(tcm, np.array(lcm_))).sum() / R_n.sum())
+        fDist.append((R_n * calc_dist(Rf_center, np.array(Ro_center))).sum() / R_n.sum())
 
         # number of features
-        nF_member.append(len(features))
+        nF.append(len(features))
 
     regionProps = dict(
-        V=np.array(V_member),
-        tcm=np.array(tcm_member),
-        fDist=np.array(fDist_member),
-        nF=np.array(nF_member),
+        V=np.array(V),
+        R_center=np.array(R_center),
+        fDist=np.array(fDist),
+        nF=np.array(nF),
     )
 
     return regionProps
@@ -163,8 +163,8 @@ def calc_mSAL(a, b, rProp_a, rProp_b, maxDist):
     A = (a_ - np.mean(b_)) / (0.5 * (a_ + np.mean(b_)))
 
     # location
-    L1 = calc_dist(rProp_a["tcm"], np.mean(rProp_b["tcm"], axis=0)) / maxDist
-    L2 = 2 * np.abs(rProp_a["fDist"] - np.mean(rProp_a["fDist"])) / maxDist
+    L1 = calc_dist(rProp_a["R_center"], np.mean(rProp_b["R_center"], axis=0)) / maxDist
+    L2 = 2 * np.abs(rProp_a["fDist"] - np.mean(rProp_b["fDist"])) / maxDist
     L = L1 + L2
 
     return dict(S=S, A=A, L=L, L1=L1)
@@ -196,9 +196,9 @@ def calc_eSAL(a, b, rProp_a, rProp_b, maxDist):
     eA = (np.mean(a_) - np.mean(b_)) / (0.5 * (np.mean(a_) + np.mean(b_)))
 
     # location
-    tcm_a = np.mean(rProp_a["tcm"], axis=0)
-    tcm_b = np.mean(rProp_b["tcm"], axis=0)
-    eL1 = calc_dist(tcm_a, tcm_b) / maxDist
+    R_center_a = np.mean(rProp_a["R_center"], axis=0)
+    R_center_b = np.mean(rProp_b["R_center"], axis=0)
+    eL1 = calc_dist(R_center_a, R_center_b) / maxDist
     eL2 = 2 * calc_crps(rProp_a["fDist"] / maxDist, rProp_b["fDist"] / maxDist)
     eL = eL1 + eL2
 
@@ -214,7 +214,7 @@ def SAL_timestep(
     fixed_thld=None,
     wet_thld=0,
     memberinfo=True,
-    params=["S", "A", "L", "L1", "thld", "nF", "tcm"],
+    params=["S", "A", "L", "L1", "thld", "nF", "R_center"],
     as_dataset=True,
 ):
 
@@ -283,14 +283,14 @@ def SAL_timestep(
         # threshold: either field dependent or fixed
         if fixed_thld is None:
             # calculate thresholds
-            R_rec_high = np.quantile(reconstruction[reconstruction > wet_thld], q=quantile)
-            R_ref_high = np.quantile(reference[reference > wet_thld], q=quantile)
+            R_high_rec = np.quantile(reconstruction[reconstruction > wet_thld], q=quantile)
+            R_high_ref = np.quantile(reference[reference > wet_thld], q=quantile)
             
-            # NEEDS TO BE MORE GENERAL
-            thld_factor = np.max((thld_factor, 0.1 / R_ref_high))
+            # threshold factor
+            thld_factor = np.max((thld_factor, 0.1 / R_high_ref))
             
-            thld_rec = R_rec_high * thld_factor
-            thld_ref = R_ref_high * thld_factor
+            thld_rec = R_high_rec * thld_factor
+            thld_ref = R_high_ref * thld_factor
         else:
             # take a fixed absolute threshold
             thld_rec = fixed_thld
@@ -343,7 +343,7 @@ def SAL_timestep(
             if p == "thld":
                 out_dict["%s_rec" % p] = thld_rec
                 out_dict["%s_ref" % p] = thld_ref
-            if p == "tcm":
+            if p == "R_center":
                 out_dict["%s_y_rec" % p] = regionProps_rec[p][..., 0]
                 out_dict["%s_x_rec" % p] = regionProps_rec[p][..., 1]
                 out_dict["%s_y_ref" % p] = regionProps_ref[p][..., 0]
@@ -362,7 +362,7 @@ def SAL_timestep(
             if p in ["thld", "nF"]:
                 out_dict["%s_rec" % p] = np.nan
                 out_dict["%s_ref" % p] = np.nan
-            if p == "tcm":
+            if p == "R_center":
                 out_dict["%s_y_rec" % p] = np.nan
                 out_dict["%s_x_rec" % p] = np.nan
                 out_dict["%s_y_ref" % p] = np.nan
@@ -394,9 +394,9 @@ def build_dataset_timestep(out_dict, nfields_rec, nfields_ref, calculation_feasi
         for p in out_dict:
             if p in ["S", "A", "L", "L1", "thld_rec", "thld_ref"]:
                 out_ds[p] = out_dict[p]
-            if p in ["mS", "mA", "mL", "mL1", "tcm_y_rec", "tcm_x_rec", "nF_rec"]:
+            if p in ["mS", "mA", "mL", "mL1", "R_center_y_rec", "R_center_x_rec", "nF_rec"]:
                 out_ds[p] = ("nfields_rec", out_dict[p])
-            if p in ["tcm_y_ref", "tcm_x_ref", "nF_ref"]:
+            if p in ["R_center_y_ref", "R_center_x_ref", "nF_ref"]:
                 out_ds[p] = ("nfields_ref", out_dict[p])
     else:
         for p in out_dict:
@@ -416,7 +416,7 @@ def SAL_timeseries(
     fixed_thld=None,
     wet_thld=0,
     memberinfo=True,
-    params=["S", "A", "L", "L1", "thld", "nF", "tcm"],
+    params=["S", "A", "L", "L1", "thld", "nF", "R_center"],
     workers=None,
 ):
     """
@@ -471,10 +471,10 @@ def SAL_timeseries(
 
     if yx_shift is not None:
         # bring to right grid position
-        sal["tcm_y_rec"] = sal.tcm_y_rec + yx_shift[0]
-        sal["tcm_x_rec"] = sal.tcm_x_rec + yx_shift[1]
-        sal["tcm_y_ref"] = sal.tcm_y_ref + yx_shift[0]
-        sal["tcm_x_ref"] = sal.tcm_x_ref + yx_shift[1]
+        sal["R_center_y_rec"] = sal.R_center_y_rec + yx_shift[0]
+        sal["R_center_x_rec"] = sal.R_center_x_rec + yx_shift[1]
+        sal["R_center_y_ref"] = sal.R_center_y_ref + yx_shift[0]
+        sal["R_center_x_ref"] = sal.R_center_x_ref + yx_shift[1]
 
     # add Euclidean distance
     sal["Q"] = (sal["S"] ** 2 + sal["A"] ** 2 + sal["L"] ** 2) ** 0.5
